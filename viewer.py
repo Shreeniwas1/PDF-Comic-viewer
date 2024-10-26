@@ -141,18 +141,17 @@ class PDFViewer:
                 self.photo = ImageTk.PhotoImage(img)
                 self.canvas.delete("all")
 
+                # Calculate centered coordinates
                 canvas_width = self.canvas.winfo_width()
                 canvas_height = self.canvas.winfo_height()
                 img_width, img_height = img.size
 
-                x = (canvas_width - img_width) // 2
-                y = (canvas_height - img_height) // 2
+                x = max((canvas_width - img_width) // 2, 0)
+                y = max((canvas_height - img_height) // 2, 0)
 
                 self.canvas.create_image(x, y, anchor=tk.NW, image=self.photo)
-                
-                self.canvas.xview_moveto(x)
-                self.canvas.yview_moveto(y)
 
+                # Update scroll region
                 self.canvas.config(scrollregion=self.canvas.bbox(tk.ALL))
                 self.root.title(f"PDF Viewer - Page {page_number + 1}/{len(self.pdf_document)}")
             except Exception as e:
@@ -162,23 +161,21 @@ class PDFViewer:
         if self.cbz_images and 0 <= page_number < len(self.cbz_images):
             try:
                 img = self.cbz_images[page_number]
-                img = img.resize((int(img.width * self.zoom_level), int(img.height * self.zoom_level)), Image.LANCZOS )
+                img = img.resize((int(img.width * self.zoom_level), int(img.height * self.zoom_level)), Image.LANCZOS)
                 self.photo = ImageTk.PhotoImage(img)
                 self.canvas.delete("all")
 
+                # Calculate centered coordinates
                 canvas_width = self.canvas.winfo_width()
                 canvas_height = self.canvas.winfo_height()
                 img_width, img_height = img.size
 
-                x = (canvas_width - img_width) // 2
-                y = (canvas_height - img_height) // 2
+                x = max((canvas_width - img_width) // 2, 0)
+                y = max((canvas_height - img_height) // 2, 0)
 
                 self.canvas.create_image(x, y, anchor=tk.NW, image=self.photo)
 
-
-                self.canvas.xview_moveto(x)
-                self.canvas.yview_moveto(y)
-                                
+                # Update scroll region
                 self.canvas.config(scrollregion=self.canvas.bbox(tk.ALL))
                 self.root.title(f"Comic Viewer - Page {page_number + 1}/{len(self.cbz_images)}")
             except Exception as e:
