@@ -22,6 +22,8 @@ class PDFViewer:
         self.current_music_index = -1
         self.music_playing = False
         self.music_length = 0  # Length of the current music file in seconds
+        self.comic_mode = False  # Comic viewing mode toggle
+
 
         # Initialize pygame mixer
         pygame.mixer.init()
@@ -76,6 +78,10 @@ class PDFViewer:
         # Center align the buttons
         self.button_frame.pack(side=tk.TOP, fill=tk.X, padx=10)
 
+        # Add toggle for Comic Mode
+        self.comic_mode_button = tk.Checkbutton(self.button_frame, text="Quiet Mode", bg='#4e4e4e', fg='white', font=('Arial', 10, 'bold'), command=self.toggle_comic_mode)
+        self.comic_mode_button.pack(side=tk.RIGHT, padx=10)
+
         # Music Player Frame
         self.music_frame = tk.Frame(self.root, bg='#2e2e2e')
         self.music_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
@@ -99,6 +105,16 @@ class PDFViewer:
         self.root.bind("<Left>", self.prev_page_key)
         self.root.bind("<space>", self.toggle_play_pause_music)
         self.root.bind("<Control-Right>", self.next_music_key)
+
+
+    def toggle_comic_mode(self):
+        self.comic_mode = not self.comic_mode
+        if self.comic_mode:
+            # Hide music player controls and show comic viewer settings
+            self.music_frame.pack_forget()
+        else:
+            # Restore music player controls
+            self.music_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
 
     def open_file(self):
         file_path = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf"), ("Comic Book Zip files", "*.cbz")])
