@@ -5,6 +5,7 @@ from PIL import Image, ImageTk
 import pygame
 import os
 import zipfile
+from mutagen.mp3 import MP3  # Add this import for MP3 files
 
 class PDFViewer:
     def __init__(self, root):
@@ -23,6 +24,7 @@ class PDFViewer:
         self.music_playing = False
         self.music_length = 0  # Length of the current music file in seconds
         self.comic_mode = False  # Comic viewing mode toggle
+        self.dragging = False  # Initialize dragging flag
 
 
         # Initialize pygame mixer
@@ -55,11 +57,11 @@ class PDFViewer:
         self.canvas.config(xscrollcommand=self.h_scroll.set)
 
         # Create top section frame
-        self.top_section = tk.Frame(self.root, bg='#2e2e2e')
+        self.top_section = tk.Frame(self.root, bg='#2e2e2e')  # Match the root background color
         self.top_section.pack(side=tk.TOP, fill=tk.X, pady=5)
 
         # Create logo frame
-        self.logo_frame = tk.Frame(self.top_section, bg='#2e2e2e')
+        self.logo_frame = tk.Frame(self.top_section, bg='#2e2e2e')  # Match the root background color
         self.logo_frame.pack(side=tk.LEFT, padx=10)
 
         # Add logo image
@@ -67,15 +69,15 @@ class PDFViewer:
             self.logo_image = Image.open("math.png")  # Ensure the path is correct
             self.logo_image = self.logo_image.resize((50, 50), Image.LANCZOS)  # Resize the image to a smaller size
             self.logo_photo = ImageTk.PhotoImage(self.logo_image)
-            self.logo_label = tk.Label(self.logo_frame, image=self.logo_photo, bg='#2e2e2e')
+            self.logo_label = tk.Label(self.logo_frame, image=self.logo_photo, bg='#2e2e2e')  # Match the root background color
             self.logo_label.pack(side=tk.LEFT)
         except Exception as e:
             print(f"Error loading logo image: {e}")
-            self.logo_label = tk.Label(self.logo_frame, text="Logo", font=('Arial', 14, 'bold'), fg='white', bg='#2e2e2e')
+            self.logo_label = tk.Label(self.logo_frame, text="Logo", font=('Arial', 14, 'bold'), fg='white', bg='#2e2e2e')  # Match the root background color
             self.logo_label.pack(side=tk.LEFT)
 
         # Button Frame for navigation and zoom (modify existing button frame code)
-        self.button_frame = tk.Frame(self.top_section, bg='#2e2e2e')  # Changed parent to top_section
+        self.button_frame = tk.Frame(self.top_section, bg='#2e2e2e')  # Match the root background color
         self.button_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, pady=5)
 
         # Button styling
@@ -116,9 +118,19 @@ class PDFViewer:
         self.song_label = tk.Label(self.music_frame, text="No song playing", bg='#2e2e2e', fg='white', font=('Arial', 10))
         self.song_label.pack(side=tk.LEFT, padx=10)
 
+        # Current Time Label
+        self.current_time_label = tk.Label(self.music_frame, text="00:00", bg='#2e2e2e', fg='white', font=('Arial', 10))
+        self.current_time_label.pack(side=tk.LEFT, padx=5)
+
         # Progress Bar
         self.progress_bar = tk.Scale(self.music_frame, from_=0, to=100, orient=tk.HORIZONTAL, length=400, sliderrelief=tk.FLAT, bg='#4e4e4e', troughcolor='#1e1e1e', fg='white', showvalue=0)
         self.progress_bar.pack(side=tk.LEFT, padx=10)
+        self.progress_bar.bind("<ButtonPress-1>", self.start_drag)  # Bind event to start dragging
+        self.progress_bar.bind("<ButtonRelease-1>", self.stop_drag)  # Bind event to stop dragging
+
+        # Total Time Label
+        self.total_time_label = tk.Label(self.music_frame, text="00:00", bg='#2e2e2e', fg='white', font=('Arial', 10))
+        self.total_time_label.pack(side=tk.LEFT, padx=5)
 
         # Bind keyboard events
         self.root.bind("<Right>", self.next_page_key)
@@ -286,10 +298,20 @@ class PDFViewer:
 
     def play_music(self):
         if self.music_files:
+            pygame.mixer.music.load(self.music_files[self.current_music_index])
             pygame.mixer.music.play()
             self.music_playing = True
-            self.music_length = pygame.mixer.music.get_length()
+            self.music_length = self.get_music_length(self.music_files[self.current_music_index])
+            self.total_time_label.config(text=self.format_time(self.music_length))  # Update total time label
             self.update_music_progress()
+
+    def get_music_length(self, file_path):
+        if file_path.lower().endswith('.mp3'):
+            audio = MP3(file_path)
+            return audio.info.length
+        else:
+            audio = pygame.mixer.Sound(file_path)
+            return audio.get_length()
 
     def pause_music(self):
         if self.music_playing:
@@ -306,11 +328,36 @@ class PDFViewer:
             self.song_label.config(text=os.path.basename(self.music_files[self.current_music_index]))
 
     def update_music_progress(self):
-        if self.music_playing:
+        if self.music_playing and not self.dragging:
             current_pos = pygame.mixer.music.get_pos() / 1000  # Convert to seconds
             progress = (current_pos / self.music_length) * 100 if self.music_length > 0 else 0
             self.progress_bar.set(progress)
-            self.root.after(1000, self.update_music_progress)  # Check every second
+            self.current_time_label.config(text=self.format_time(current_pos))  # Update current time label
+            if current_pos < self.music_length:
+                self.root.after(100, self.update_music_progress)  # Check every 100 milliseconds
+            else:
+                self.music_playing = False
+                self.progress_bar.set(0)  # Reset progress bar when music ends
+                self.current_time_label.config(text="00:00")  # Reset current time label
+
+    def format_time(self, seconds):
+        minutes = int(seconds // 60)
+        seconds = int(seconds % 60)
+        return f"{minutes:02}:{seconds:02}"
+
+    def start_drag(self, event):
+        self.dragging = True
+
+    def stop_drag(self, event):
+        self.dragging = False
+        self.set_music_position(event)
+
+    def set_music_position(self, event):
+        if self.music_length > 0:
+            new_position = self.progress_bar.get() / 100 * self.music_length  # Calculate new position in seconds
+            pygame.mixer.music.set_pos(new_position)  # Set new position
+            self.current_time_label.config(text=self.format_time(new_position))  # Update current time label
+            self.update_music_progress()  # Update progress bar
 
     # Keyboard input methods
     def next_page_key(self, event):
