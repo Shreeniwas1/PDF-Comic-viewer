@@ -54,9 +54,29 @@ class PDFViewer:
         self.h_scroll.pack(side=tk.BOTTOM, fill=tk.X)
         self.canvas.config(xscrollcommand=self.h_scroll.set)
 
-        # Button Frame for navigation and zoom
-        self.button_frame = tk.Frame(self.root, bg='#2e2e2e')
-        self.button_frame.pack(side=tk.TOP, fill=tk.X, pady=5)
+        # Create top section frame
+        self.top_section = tk.Frame(self.root, bg='#2e2e2e')
+        self.top_section.pack(side=tk.TOP, fill=tk.X, pady=5)
+
+        # Create logo frame
+        self.logo_frame = tk.Frame(self.top_section, bg='#2e2e2e')
+        self.logo_frame.pack(side=tk.LEFT, padx=10)
+
+        # Add logo image
+        try:
+            self.logo_image = Image.open("math.png")  # Ensure the path is correct
+            self.logo_image = self.logo_image.resize((50, 50), Image.LANCZOS)  # Resize the image to a smaller size
+            self.logo_photo = ImageTk.PhotoImage(self.logo_image)
+            self.logo_label = tk.Label(self.logo_frame, image=self.logo_photo, bg='#2e2e2e')
+            self.logo_label.pack(side=tk.LEFT)
+        except Exception as e:
+            print(f"Error loading logo image: {e}")
+            self.logo_label = tk.Label(self.logo_frame, text="Logo", font=('Arial', 14, 'bold'), fg='white', bg='#2e2e2e')
+            self.logo_label.pack(side=tk.LEFT)
+
+        # Button Frame for navigation and zoom (modify existing button frame code)
+        self.button_frame = tk.Frame(self.top_section, bg='#2e2e2e')  # Changed parent to top_section
+        self.button_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, pady=5)
 
         # Button styling
         button_style = {'bg': '#4e4e4e', 'fg': 'white', 'font': ('Arial', 10, 'bold'), 'relief': tk.FLAT}
