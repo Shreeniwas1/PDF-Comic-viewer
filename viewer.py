@@ -26,7 +26,6 @@ class PDFViewer:
         self.comic_mode = False  # Comic viewing mode toggle
         self.dragging = False  # Initialize dragging flag
 
-
         # Initialize pygame mixer
         pygame.mixer.init()
 
@@ -41,6 +40,10 @@ class PDFViewer:
         # Canvas for displaying the PDF pages or images
         self.canvas = tk.Canvas(self.canvas_scroll_frame, bg='#1e1e1e', bd=0)
         self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Bind mouse wheel events for scrolling
+        self.canvas.bind("<MouseWheel>", self.on_mouse_wheel)
+        self.canvas.bind("<Shift-MouseWheel>", self.on_shift_mouse_wheel)
 
         # Vertical Scrollbar
         self.v_scroll = tk.Scrollbar(self.canvas_scroll_frame, orient=tk.VERTICAL, command=self.canvas.yview)
@@ -97,6 +100,11 @@ class PDFViewer:
         for text, command in buttons:
             tk.Button(self.button_frame, text=text, command=command, **button_style).pack(side=tk.LEFT, padx=5, pady=5)
 
+        # Add Jump to Page button and entry
+        self.page_entry = tk.Entry(self.button_frame, width=5)
+        self.page_entry.pack(side=tk.LEFT, padx=5, pady=5)
+        tk.Button(self.button_frame, text="Go", command=self.jump_to_page, **button_style).pack(side=tk.LEFT, padx=5, pady=5)
+
         # Center align the buttons
         self.button_frame.pack(side=tk.TOP, fill=tk.X, padx=10)
 
@@ -113,6 +121,7 @@ class PDFViewer:
         tk.Button(self.music_frame, text="▶", command=self.play_music, **button_style).pack(side=tk.LEFT, padx=10)
         tk.Button(self.music_frame, text="❚❚", command=self.pause_music, **button_style).pack(side=tk.LEFT, padx=10)
         tk.Button(self.music_frame, text="⏭", command=self.next_music, **button_style).pack(side=tk.LEFT, padx=10)
+        tk.Button(self.music_frame, text="🔀", command=self.shuffle_music, **button_style).pack(side=tk.LEFT, padx=10)
 
         # Current Song Label
         self.song_label = tk.Label(self.music_frame, text="No song playing", bg='#2e2e2e', fg='white', font=('Arial', 10))
@@ -137,7 +146,39 @@ class PDFViewer:
         self.root.bind("<Left>", self.prev_page_key)
         self.root.bind("<space>", self.toggle_play_pause_music)
         self.root.bind("<Control-Right>", self.next_music_key)
+        self.root.bind("<F11>", self.toggle_fullscreen)
+        self.root.bind("<Escape>", self.exit_fullscreen)
+        self.root.bind("<Up>", self.scroll_up)
+        self.root.bind("<Down>", self.scroll_down)
+        self.fullscreen = False
 
+
+    def scroll_up(self, event):
+        self.canvas.yview_scroll(-1, "units")
+
+    def scroll_down(self, event):
+        self.canvas.yview_scroll(1, "units")
+
+    def toggle_fullscreen(self, event=None):
+        self.fullscreen = not self.fullscreen
+        self.root.attributes("-fullscreen", self.fullscreen)
+        self.resize_elements()
+        return "break"
+
+    def exit_fullscreen(self, event=None):
+        if self.fullscreen:
+            self.fullscreen = False
+            self.root.attributes("-fullscreen", False)
+            self.resize_elements()
+        return "break"
+
+    def resize_elements(self):
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
+        self.canvas_scroll_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.h_scroll_frame.pack(side=tk.BOTTOM, fill=tk.X)
+        self.top_section.pack(side=tk.TOP, fill=tk.X, pady=5)
+        self.music_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
 
     def toggle_comic_mode(self):
         self.comic_mode = not self.comic_mode
@@ -183,7 +224,8 @@ class PDFViewer:
         if self.pdf_document and 0 <= page_number < len(self.pdf_document):
             try:
                 page = self.pdf_document[page_number]
-                pix = page.get_pixmap(matrix=fitz.Matrix(self.zoom_level, self.zoom_level))
+                matrix = fitz.Matrix(self.zoom_level, self.zoom_level)
+                pix = page.get_pixmap(matrix=matrix)
                 img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
                 
                 self.photo = ImageTk.PhotoImage(img)
@@ -199,8 +241,9 @@ class PDFViewer:
 
                 self.canvas.create_image(x, y, anchor=tk.NW, image=self.photo)
 
-                # Update scroll region
+                # Update scroll region and reset view to top
                 self.canvas.config(scrollregion=self.canvas.bbox(tk.ALL))
+                self.canvas.yview_moveto(0)
                 self.root.title(f"PDF Viewer - Page {page_number + 1}/{len(self.pdf_document)}")
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to render page: {e}")
@@ -223,11 +266,18 @@ class PDFViewer:
 
                 self.canvas.create_image(x, y, anchor=tk.NW, image=self.photo)
 
-                # Update scroll region
+                # Update scroll region and reset view to top
                 self.canvas.config(scrollregion=self.canvas.bbox(tk.ALL))
+                self.canvas.yview_moveto(0)
                 self.root.title(f"Comic Viewer - Page {page_number + 1}/{len(self.cbz_images)}")
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to render image: {e}")
+
+    def on_mouse_wheel(self, event):
+        self.canvas.yview_scroll(-1 * int(event.delta / 120), "units")
+
+    def on_shift_mouse_wheel(self, event):
+        self.canvas.xview_scroll(-1 * int(event.delta / 120), "units")
 
     def prev_page(self):
         if (self.pdf_document and self.current_page > 0) or (self.cbz_images and self.current_page > 0):
@@ -327,6 +377,14 @@ class PDFViewer:
             self.music_playing = True
             self.song_label.config(text=os.path.basename(self.music_files[self.current_music_index]))
 
+    def shuffle_music(self):
+        if self.music_files:
+            import random
+            random.shuffle(self.music_files)
+            self.current_music_index = 0
+            pygame.mixer.music.load(self.music_files[self.current_music_index])
+            self.song_label.config(text=os.path.basename(self.music_files[self.current_music_index]))
+
     def update_music_progress(self):
         if self.music_playing and not self.dragging:
             current_pos = pygame.mixer.music.get_pos() / 1000  # Convert to seconds
@@ -357,7 +415,18 @@ class PDFViewer:
             new_position = self.progress_bar.get() / 100 * self.music_length  # Calculate new position in seconds
             pygame.mixer.music.set_pos(new_position)  # Set new position
             self.current_time_label.config(text=self.format_time(new_position))  # Update current time label
-            self.update_music_progress()  # Update progress bar
+
+    def jump_to_page(self):
+        try:
+            page_number = int(self.page_entry.get()) - 1
+            if self.pdf_document and 0 <= page_number < len(self.pdf_document):
+                self.current_page = page_number
+                self.show_page(self.current_page)
+            elif self.cbz_images and 0 <= page_number < len(self.cbz_images):
+                self.current_page = page_number
+                self.show_image(self.current_page)
+        except ValueError:
+            messagebox.showerror("Error", "Invalid page number")
 
     # Keyboard input methods
     def next_page_key(self, event):
