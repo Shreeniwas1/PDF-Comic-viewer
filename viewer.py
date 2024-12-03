@@ -1,9 +1,23 @@
-import fitz  # PyMuPDF
+import os
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"  # Hide pygame support prompt
+
+import sys  # Add this import if not already present
+if not sys.stdout:
+    sys.stdout = open(os.devnull, 'w')
+if not sys.stderr:
+    sys.stderr = open(os.devnull, 'w')
+
+try:
+    import fitz  # PyMuPDF
+except AssertionError:
+    # Handle PyMuPDF initialization error during bundling
+    import pymupdf
+    fitz = pymupdf
+
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
 import pygame
-import os
 import zipfile
 from mutagen.mp3 import MP3  # Add this import for MP3 files
 import sys  # Add this import at the top with other imports
@@ -70,7 +84,9 @@ class PDFViewer:
 
         # Add logo image
         try:
-            self.logo_image = Image.open("math.png")  # Ensure the path is correct
+            script_dir = os.path.dirname(os.path.abspath(__file__))  # Get the directory of the script
+            logo_path = os.path.join(script_dir, "math.ico")  # Use a relative path to the logo file
+            self.logo_image = Image.open(logo_path)  # Ensure the path is correct
             self.logo_image = self.logo_image.resize((50, 50), Image.LANCZOS)  # Resize the image to a smaller size
             self.logo_photo = ImageTk.PhotoImage(self.logo_image)
             self.logo_label = tk.Label(self.logo_frame, image=self.logo_photo, bg='#2e2e2e')  # Match the root background color
@@ -154,12 +170,22 @@ class PDFViewer:
         self.fullscreen = False
 
         # Check command line arguments for file to open
-        if len(sys.argv) > 1:
-            file_path = sys.argv[1]
-            if file_path.lower().endswith('.pdf'):
-                self.open_pdf(file_path)
-            elif file_path.lower().endswith('.cbz'):
-                self.open_cbz(file_path)
+        if hasattr(sys, 'frozen'):
+            # Running as a bundled executable
+            if len(sys.argv) > 1:
+                file_path = sys.argv[1]
+                if file_path.lower().endswith('.pdf'):
+                    self.open_pdf(file_path)
+                elif file_path.lower().endswith('.cbz'):
+                    self.open_cbz(file_path)
+        else:
+            # Running as a script
+            if len(sys.argv) > 1:
+                file_path = sys.argv[1]
+                if file_path.lower().endswith('.pdf'):
+                    self.open_pdf(file_path)
+                elif file_path.lower().endswith('.cbz'):
+                    self.open_cbz(file_path)
 
     def scroll_up(self, event):
         self.canvas.yview_scroll(-1, "units")
@@ -205,12 +231,23 @@ class PDFViewer:
             elif file_path.lower().endswith('.cbz'):
                 self.open_cbz(file_path)
 
+    def resize_window(self, width, height):
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        new_width = min(width, screen_width)
+        new_height = min(height, screen_height)
+        self.root.geometry(f"{new_width}x{new_height}")
+
     def open_pdf(self, file_path):
         try:
             self.pdf_document = fitz.open(file_path)
             self.current_page = 0
             self.zoom_level = 1.0
             self.show_page(self.current_page)
+            # Resize window based on the first page size
+            page = self.pdf_document[0]
+            pix = page.get_pixmap()
+            self.resize_window(pix.width, pix.height)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open PDF: {e}")
             self.pdf_document = None
@@ -224,6 +261,9 @@ class PDFViewer:
                 self.current_page = 0
                 self.zoom_level = 1.0
                 self.show_image(self.current_page)
+                # Resize window based on the first image size
+                img = self.cbz_images[0]
+                self.resize_window(img.width, img.height)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open CBZ file: {e}")
             self.cbz_images = []
@@ -233,7 +273,7 @@ class PDFViewer:
             try:
                 page = self.pdf_document[page_number]
                 matrix = fitz.Matrix(self.zoom_level, self.zoom_level)
-                pix = page.get_pixmap(matrix=matrix)
+                pix = page.get_pixmap(matrix=matrix, alpha=False)  # Ensure alpha is set to False
                 img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
                 
                 self.photo = ImageTk.PhotoImage(img)
@@ -455,4 +495,5 @@ class PDFViewer:
 if __name__ == "__main__":
     root = tk.Tk()
     viewer = PDFViewer(root)
+    root.state('zoomed')  # Open the window maximized
     root.mainloop()
