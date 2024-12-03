@@ -59,6 +59,7 @@ class PDFViewer:
         # Bind mouse wheel events for scrolling
         self.canvas.bind("<MouseWheel>", self.on_mouse_wheel)
         self.canvas.bind("<Shift-MouseWheel>", self.on_shift_mouse_wheel)
+        self.canvas.bind("<Control-MouseWheel>", self.on_ctrl_mouse_wheel)  # Add this line
 
         # Vertical Scrollbar
         self.v_scroll = tk.Scrollbar(self.canvas_scroll_frame, orient=tk.VERTICAL, command=self.canvas.yview)
@@ -326,6 +327,12 @@ class PDFViewer:
 
     def on_shift_mouse_wheel(self, event):
         self.canvas.xview_scroll(-1 * int(event.delta / 120), "units")
+
+    def on_ctrl_mouse_wheel(self, event):
+        if event.delta > 0:
+            self.zoom_in()
+        else:
+            self.zoom_out()
 
     def prev_page(self):
         if (self.pdf_document and self.current_page > 0) or (self.cbz_images and self.current_page > 0):
