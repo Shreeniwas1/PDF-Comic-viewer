@@ -6,6 +6,7 @@ import pygame
 import os
 import zipfile
 from mutagen.mp3 import MP3  # Add this import for MP3 files
+import sys  # Add this import at the top with other imports
 
 class PDFViewer:
     def __init__(self, root):
@@ -152,6 +153,13 @@ class PDFViewer:
         self.root.bind("<Down>", self.scroll_down)
         self.fullscreen = False
 
+        # Check command line arguments for file to open
+        if len(sys.argv) > 1:
+            file_path = sys.argv[1]
+            if file_path.lower().endswith('.pdf'):
+                self.open_pdf(file_path)
+            elif file_path.lower().endswith('.cbz'):
+                self.open_cbz(file_path)
 
     def scroll_up(self, event):
         self.canvas.yview_scroll(-1, "units")
