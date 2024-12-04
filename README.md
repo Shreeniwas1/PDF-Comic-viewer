@@ -4,6 +4,7 @@ PDF/Comic viewer with music
 
 
 requirements 
+<br>
 pymupdf==1.24.12
 <br>
 pillow==11.0.0
